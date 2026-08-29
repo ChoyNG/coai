@@ -146,46 +146,91 @@ func (m *Manager) SaveConfig() error {
 }
 
 func (m *Manager) CreateChannel(channel *Channel) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	channel.Id = m.GetMaxId() + 1
 	m.Sequence = append(m.Sequence, channel)
-	return m.SaveConfig()
+	if err := m.SaveConfig(); err != nil {
+		m.Sequence = m.Sequence[:len(m.Sequence)-1]
+		return err
+	}
+	m.Load()
+	return nil
 }
 
 func (m *Manager) UpdateChannel(id int, channel *Channel) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	for i, item := range m.Sequence {
 		if item.Id == id {
+			previous := item
 			m.Sequence[i] = channel
-			return m.SaveConfig()
+			if err := m.SaveConfig(); err != nil {
+				m.Sequence[i] = previous
+				return err
+			}
+			m.Load()
+			return nil
 		}
 	}
 	return errors.New("channel not found")
 }
 
 func (m *Manager) DeleteChannel(id int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	for i, item := range m.Sequence {
 		if item.Id == id {
 			m.Sequence = append(m.Sequence[:i], m.Sequence[i+1:]...)
-			return m.SaveConfig()
+			if err := m.SaveConfig(); err != nil {
+				m.Sequence = append(m.Sequence, nil)
+				copy(m.Sequence[i+1:], m.Sequence[i:])
+				m.Sequence[i] = item
+				return err
+			}
+			m.Load()
+			return nil
 		}
 	}
 	return errors.New("channel not found")
 }
 
 func (m *Manager) ActivateChannel(id int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	for i, item := range m.Sequence {
 		if item.Id == id {
+			previous := item.State
 			m.Sequence[i].State = true
-			return m.SaveConfig()
+			if err := m.SaveConfig(); err != nil {
+				m.Sequence[i].State = previous
+				return err
+			}
+			m.Load()
+			return nil
 		}
 	}
 	return errors.New("channel not found")
 }
 
 func (m *Manager) DeactivateChannel(id int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	for i, item := range m.Sequence {
 		if item.Id == id {
+			previous := item.State
 			m.Sequence[i].State = false
-			return m.SaveConfig()
+			if err := m.SaveConfig(); err != nil {
+				m.Sequence[i].State = previous
+				return err
+			}
+			m.Load()
+			return nil
 		}
 	}
 	return errors.New("channel not found")

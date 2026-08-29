@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"chat/globals"
@@ -23,6 +24,52 @@ func newImageServer(t *testing.T, path *string, body *ImageRequest, response int
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(response)
 	}))
+}
+
+func TestCreateImageRequestRejectsEmptyDataWithoutPanic(t *testing.T) {
+	var path string
+	var body ImageRequest
+	instance := NewChatInstance("", "sk-test")
+	server := newImageServer(t, &path, &body, map[string]interface{}{"data": []interface{}{}})
+	instance.Endpoint = server.URL
+	defer server.Close()
+
+	_, _, err := instance.CreateImageRequest(ImageProps{Model: globals.GPTImage2, Prompt: "cat"})
+	if err == nil || !strings.Contains(err.Error(), "no image data") {
+		t.Fatalf("error = %v, want clear empty-data error", err)
+	}
+}
+
+func TestCreateImageRequestReportsOpenAIError(t *testing.T) {
+	var path string
+	var body ImageRequest
+	instance := NewChatInstance("", "sk-test")
+	server := newImageServer(t, &path, &body, map[string]interface{}{
+		"error": map[string]string{"message": "no available account"},
+	})
+	instance.Endpoint = server.URL
+	defer server.Close()
+
+	_, _, err := instance.CreateImageRequest(ImageProps{Model: globals.GPTImage2, Prompt: "cat"})
+	if err == nil || !strings.Contains(err.Error(), "no available account") {
+		t.Fatalf("error = %v, want upstream error message", err)
+	}
+}
+
+func TestCreateImageRequestRejectsImageWithoutPayload(t *testing.T) {
+	var path string
+	var body ImageRequest
+	instance := NewChatInstance("", "sk-test")
+	server := newImageServer(t, &path, &body, map[string]interface{}{
+		"data": []map[string]string{{}},
+	})
+	instance.Endpoint = server.URL
+	defer server.Close()
+
+	_, _, err := instance.CreateImageRequest(ImageProps{Model: globals.GPTImage2, Prompt: "cat"})
+	if err == nil || !strings.Contains(err.Error(), "neither url nor b64_json") {
+		t.Fatalf("error = %v, want missing-payload error", err)
+	}
 }
 
 // TestCreateImageRequestGPTImage asserts that gpt-image-2 is sent to the image

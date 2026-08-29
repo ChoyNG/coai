@@ -2,6 +2,7 @@ package channel
 
 import (
 	"chat/globals"
+	"sync"
 )
 
 type Channel struct {
@@ -27,6 +28,7 @@ type Channel struct {
 type Sequence []*Channel
 
 type Manager struct {
+	mu                sync.Mutex          `json:"-"`
 	Sequence          Sequence            `json:"sequence"`
 	PreflightSequence map[string]Sequence `json:"preflight_sequence"`
 	Models            []string            `json:"models"`

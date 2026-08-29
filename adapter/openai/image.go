@@ -33,15 +33,22 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 			),
 			N: 1,
 		}, props.Proxy)
-	if err != nil || res == nil {
-		return "", "", fmt.Errorf(err.Error())
+	if err != nil {
+		return "", "", fmt.Errorf("openai image request failed: %w", err)
+	}
+	if res == nil {
+		return "", "", fmt.Errorf("openai image error: upstream returned an empty response")
 	}
 
 	data := utils.MapToStruct[ImageResponse](res)
 	if data == nil {
-		return "", "", fmt.Errorf("openai error: cannot parse response")
-	} else if data.Error.Message != "" {
-		return "", "", fmt.Errorf(data.Error.Message)
+		return "", "", fmt.Errorf("openai image error: cannot parse upstream response")
+	}
+	if data.Error.Message != "" {
+		return "", "", fmt.Errorf("openai image error: %s", data.Error.Message)
+	}
+	if len(data.Data) == 0 {
+		return "", "", fmt.Errorf("openai image error: upstream response contains no image data")
 	}
 
 	// for gpt-image-1 / gpt-image-1.5 / gpt-image-2, return base64 data if available
@@ -53,6 +60,9 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 	// such as Sub2API that normalize every image model to base64)
 	if data.Data[0].Url == "" && data.Data[0].B64Json != "" {
 		return "", data.Data[0].B64Json, nil
+	}
+	if data.Data[0].Url == "" {
+		return "", "", fmt.Errorf("openai image error: upstream response contains neither url nor b64_json")
 	}
 
 	return data.Data[0].Url, "", nil

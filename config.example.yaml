@@ -13,6 +13,8 @@ redis:
   password: ""
 
 
+# Override with the SECRET environment variable in production. Use 32+ random bytes.
+# This intentionally weak template value makes unsafe setups emit a warning.
 secret: secret
 serve_static: true
 

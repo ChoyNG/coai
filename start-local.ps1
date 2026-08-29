@@ -92,6 +92,12 @@ try {
         }
     }
 
+    if ([string]::IsNullOrWhiteSpace($env:SECRET) -or $env:SECRET.Length -lt 32) {
+        Write-Host "[start-local] ERROR: Set `$env:SECRET to a random value of at least 32 characters before starting." -ForegroundColor Red
+        Write-Host "[start-local] Example: `$env:SECRET = -join ((1..48) | ForEach-Object { [char](Get-Random -Minimum 33 -Maximum 127) })" -ForegroundColor Yellow
+        exit 1
+    }
+
     Write-Step "Building CoAI from source and starting services (this takes a few minutes on first run)..."
     & docker compose -f $StableCompose -f $LocalCompose up -d --build
     if ($LASTEXITCODE -ne 0) {
