@@ -175,6 +175,7 @@ func createChatTask(
 				PresencePenalty:   instance.GetPresencePenalty(),
 				FrequencyPenalty:  instance.GetFrequencyPenalty(),
 				RepetitionPenalty: instance.GetRepetitionPenalty(),
+				Tools:             getImageGenerationTools(model),
 			}, buffer),
 
 			// the function to handle the chunk data
@@ -296,6 +297,25 @@ func ChatHandler(conn *Connection, user *auth.User, instance *conversation.Conve
 	if !hit {
 		CollectQuota(conn.GetCtx(), user, buffer, plan, err)
 	}
+	totalQuota := buffer.GetQuota()
+	toolCalls := buffer.GetToolCalls()
+	imageArgs, generateImage, toolErr := getGenerateImageArguments(toolCalls)
+	if toolErr != nil {
+		conn.Send(globals.ChatSegmentResponse{Message: toolErr.Error(), End: true, Quota: totalQuota, Plan: plan})
+		return toolErr.Error()
+	}
+	if generateImage {
+		imageContent, imageQuota, imagePlan, imageErr := executeGenerateImageTool(conn, user, imageArgs)
+		if imageErr != nil {
+			message := fmt.Sprintf("image generation failed: %s", imageErr.Error())
+			conn.Send(globals.ChatSegmentResponse{Message: message, End: true, Quota: totalQuota, Plan: plan || imagePlan})
+			return message
+		}
+		buffer.Write(imageContent)
+		totalQuota += imageQuota
+		plan = plan || imagePlan
+		conn.Send(globals.ChatSegmentResponse{Message: imageContent, Quota: totalQuota, End: false, Plan: plan})
+	}
 
 	if buffer.IsEmpty() {
 		conn.Send(globals.ChatSegmentResponse{
@@ -307,7 +327,7 @@ func ChatHandler(conn *Connection, user *auth.User, instance *conversation.Conve
 
 	conn.Send(globals.ChatSegmentResponse{
 		End:   true,
-		Quota: buffer.GetQuota(),
+		Quota: totalQuota,
 		Plan:  plan,
 	})
 

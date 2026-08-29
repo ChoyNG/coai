@@ -89,7 +89,12 @@ func (c *ChatInstance) CreateImage(props *adaptercommon.ChatProps) (string, erro
 	}
 
 	if b64Json != "" {
-		return utils.GetBase64ImageMarkdown(b64Json), nil
+		storedUrl, storeErr := utils.StoreBase64Image(b64Json)
+		if storeErr != nil {
+			globals.Warn(fmt.Sprintf("[openai image] failed to persist generated image: %s", storeErr.Error()))
+			return utils.GetBase64ImageMarkdown(b64Json), nil
+		}
+		return utils.GetImageMarkdown(storedUrl), nil
 	}
 
 	storedUrl := utils.StoreImage(url)
