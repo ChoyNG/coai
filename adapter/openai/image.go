@@ -47,6 +47,12 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 	if data.Error.Message != "" {
 		return "", "", fmt.Errorf("openai image error: %s", data.Error.Message)
 	}
+	if data.Message != "" {
+		if data.Code != "" {
+			return "", "", fmt.Errorf("openai image error: %s (%s)", data.Message, data.Code)
+		}
+		return "", "", fmt.Errorf("openai image error: %s", data.Message)
+	}
 	if len(data.Data) == 0 {
 		return "", "", fmt.Errorf("openai image error: upstream response contains no image data")
 	}

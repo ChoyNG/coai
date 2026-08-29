@@ -107,7 +107,9 @@ type ImageRequest struct {
 }
 
 type ImageResponse struct {
-	Data []struct {
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+	Data    []struct {
 		Url     string `json:"url,omitempty"`
 		B64Json string `json:"b64_json,omitempty"`
 	} `json:"data"`

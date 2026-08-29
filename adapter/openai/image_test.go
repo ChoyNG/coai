@@ -56,6 +56,23 @@ func TestCreateImageRequestReportsOpenAIError(t *testing.T) {
 	}
 }
 
+func TestCreateImageRequestReportsTopLevelGatewayError(t *testing.T) {
+	var path string
+	var body ImageRequest
+	instance := NewChatInstance("", "sk-test")
+	server := newImageServer(t, &path, &body, map[string]interface{}{
+		"code":    "INSUFFICIENT_BALANCE",
+		"message": "Insufficient account balance",
+	})
+	instance.Endpoint = server.URL
+	defer server.Close()
+
+	_, _, err := instance.CreateImageRequest(ImageProps{Model: globals.GPTImage2, Prompt: "cat"})
+	if err == nil || !strings.Contains(err.Error(), "Insufficient account balance (INSUFFICIENT_BALANCE)") {
+		t.Fatalf("error = %v, want top-level gateway error", err)
+	}
+}
+
 func TestCreateImageRequestRejectsImageWithoutPayload(t *testing.T) {
 	var path string
 	var body ImageRequest
