@@ -30,7 +30,9 @@ FROM node:18 AS frontend
 WORKDIR /app
 COPY ./app .
 
-RUN npm install -g pnpm && \
+# pnpm is pinned to 8.x: pnpm 9+ blocks postinstall build scripts by default,
+# which breaks esbuild / @swc/core and therefore the vite build.
+RUN npm install -g pnpm@8 && \
     pnpm install && \
     pnpm run build && \
     rm -rf node_modules src

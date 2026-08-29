@@ -27,7 +27,7 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 			Model:  props.Model,
 			Prompt: props.Prompt,
 			Size: utils.Multi[ImageSize](
-				props.Model == globals.Dalle3 || props.Model == globals.GPTImage1,
+				props.Model == globals.Dalle3 || globals.IsOpenAIGPTImageModel(props.Model),
 				ImageSize1024,
 				ImageSize512,
 			),
@@ -44,8 +44,14 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 		return "", "", fmt.Errorf(data.Error.Message)
 	}
 
-	// for gpt-image-1, return base64 data if available
-	if props.Model == globals.GPTImage1 && data.Data[0].B64Json != "" {
+	// for gpt-image-1 / gpt-image-1.5 / gpt-image-2, return base64 data if available
+	if globals.IsOpenAIGPTImageModel(props.Model) && data.Data[0].B64Json != "" {
+		return "", data.Data[0].B64Json, nil
+	}
+
+	// fall back to b64_json for any other model returning base64 (e.g. gateways
+	// such as Sub2API that normalize every image model to base64)
+	if data.Data[0].Url == "" && data.Data[0].B64Json != "" {
 		return "", data.Data[0].B64Json, nil
 	}
 

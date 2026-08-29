@@ -27,6 +27,10 @@
     "src",
     "*.ts",
   ],
+  /* vite.config.ts belongs to the referenced composite project
+     tsconfig.node.json; including it here too makes `tsc` fail with TS6305
+     (output file vite.config.d.ts has not been built from source file). */
+  "exclude": ["vite.config.ts"],
   "baseUrl": ".",
   "references": [{ "path": "./tsconfig.node.json" }],
 }

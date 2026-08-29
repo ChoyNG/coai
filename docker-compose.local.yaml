@@ -1,0 +1,24 @@
+# Local development override for CoAI.
+#
+# Usage (Windows PowerShell):
+#   docker compose -f docker-compose.stable.yaml -f docker-compose.local.yaml up -d --build
+#
+# or simply:
+#   .\start-local.ps1
+#
+# Why this file exists:
+#   docker-compose.stable.yaml pulls the prebuilt `programzmh/chatnio:stable`
+#   image, so local source changes would never show up. Merging this override
+#   forces the `chatnio` service to be built from the working tree instead.
+#
+#   `host.docker.internal` is mapped to the Docker host gateway so the container
+#   can reach a Sub2API instance running on the Windows host at
+#   http://host.docker.internal:8080
+services:
+  chatnio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: choyng/coai:local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
