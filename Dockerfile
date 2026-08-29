@@ -30,10 +30,12 @@ FROM node:18 AS frontend
 WORKDIR /app
 COPY ./app .
 
-# pnpm is pinned to 8.x: pnpm 9+ blocks postinstall build scripts by default,
-# which breaks esbuild / @swc/core and therefore the vite build.
-RUN npm install -g pnpm@8 && \
-    pnpm install && \
+# pnpm is pinned to 9.x to match lockfileVersion 9.0 in app/pnpm-lock.yaml.
+# Older pnpm cannot read it and silently resolves to the newest typescript /
+# @types/react, which breaks `tsc`; newer pnpm blocks the esbuild and @swc/core
+# postinstall scripts by default, which breaks the vite build.
+RUN npm install -g pnpm@9 && \
+    pnpm install --frozen-lockfile && \
     pnpm run build && \
     rm -rf node_modules src
 
