@@ -2,19 +2,25 @@
 # License: Apache-2.0
 # Description: Dockerfile for chatnio
 
-FROM --platform=$TARGETPLATFORM golang:1.20-alpine AS backend
+ARG GOLANG_IMAGE=golang:1.20-alpine
+ARG NODE_IMAGE=node:18
+ARG ALPINE_IMAGE=alpine:3.21
+
+FROM --platform=$TARGETPLATFORM ${GOLANG_IMAGE} AS backend
+
+ARG GOPROXY=https://goproxy.cn,direct
+ARG ALPINE_MIRROR=mirrors.aliyun.com
 
 WORKDIR /backend
 COPY . .
 
-# Set go proxy to https://goproxy.cn (open for vps in China Mainland)
-# RUN go env -w GOPROXY=https://goproxy.cn,direct
 ARG TARGETARCH
 ARG TARGETOS
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on CGO_ENABLED=1
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on CGO_ENABLED=1 GOPROXY=$GOPROXY
 
 # Install build dependencies
-RUN apk update && \
+RUN if [ -n "$ALPINE_MIRROR" ]; then sed -i "s/dl-cdn.alpinelinux.org/$ALPINE_MIRROR/g" /etc/apk/repositories; fi && \
+    apk update && \
     apk add --no-cache \
     gcc \
     musl-dev \
@@ -25,7 +31,9 @@ RUN apk update && \
 # Build backend
 RUN go build -o chat -a -ldflags="-extldflags=-static" .
 
-FROM node:18 AS frontend
+FROM ${NODE_IMAGE} AS frontend
+
+ARG NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 
 WORKDIR /app
 COPY ./app .
@@ -34,16 +42,20 @@ COPY ./app .
 # Older pnpm cannot read it and silently resolves to the newest typescript /
 # @types/react, which breaks `tsc`; newer pnpm blocks the esbuild and @swc/core
 # postinstall scripts by default, which breaks the vite build.
-RUN npm install -g pnpm@9 && \
+RUN if [ -n "$NPM_CONFIG_REGISTRY" ]; then npm config set registry "$NPM_CONFIG_REGISTRY"; fi && \
+    npm install -g pnpm@9 && \
     pnpm install --frozen-lockfile && \
     pnpm run build && \
     rm -rf node_modules src
 
 
-FROM alpine
+FROM ${ALPINE_IMAGE}
+
+ARG ALPINE_MIRROR=mirrors.aliyun.com
 
 # Install dependencies
-RUN apk upgrade --no-cache && \
+RUN if [ -n "$ALPINE_MIRROR" ]; then sed -i "s/dl-cdn.alpinelinux.org/$ALPINE_MIRROR/g" /etc/apk/repositories; fi && \
+    apk upgrade --no-cache && \
     apk add --no-cache wget ca-certificates tzdata && \
     update-ca-certificates 2>/dev/null || true
 

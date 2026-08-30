@@ -100,10 +100,11 @@ type ImageSize string
 
 // ImageRequest is the request body for openai dalle image generation
 type ImageRequest struct {
-	Model  string    `json:"model"`
-	Prompt string    `json:"prompt"`
-	Size   ImageSize `json:"size"`
-	N      int       `json:"n"`
+	Model   string    `json:"model"`
+	Prompt  string    `json:"prompt"`
+	Size    ImageSize `json:"size"`
+	Quality string    `json:"quality,omitempty"`
+	N       int       `json:"n"`
 }
 
 type ImageResponse struct {

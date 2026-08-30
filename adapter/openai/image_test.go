@@ -133,6 +133,10 @@ func TestCreateImageRequestGPTImage(t *testing.T) {
 		if body.Size != ImageSize1024 {
 			t.Errorf("[%s] request size = %q, want %q", model, body.Size, ImageSize1024)
 		}
+
+		if body.Quality != "medium" {
+			t.Errorf("[%s] request quality = %q, want %q", model, body.Quality, "medium")
+		}
 	}
 }
 
@@ -168,6 +172,10 @@ func TestCreateImageRequestURLModel(t *testing.T) {
 
 	if path != "/v1/images/generations" {
 		t.Errorf("request path = %q, want %q", path, "/v1/images/generations")
+	}
+
+	if body.Quality != "" {
+		t.Errorf("dall-e request quality = %q, want omitted", body.Quality)
 	}
 }
 

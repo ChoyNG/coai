@@ -31,6 +31,11 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 				ImageSize1024,
 				ImageSize512,
 			),
+			Quality: utils.Multi(
+				globals.IsOpenAIGPTImageModel(props.Model),
+				"medium",
+				"",
+			),
 			N: 1,
 		}, props.Proxy)
 	if err != nil {
