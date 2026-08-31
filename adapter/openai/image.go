@@ -9,10 +9,11 @@ import (
 )
 
 type ImageProps struct {
-	Model  string
-	Prompt string
-	Size   ImageSize
-	Proxy  globals.ProxyConfig
+	Model   string
+	Prompt  string
+	Size    ImageSize
+	Quality string
+	Proxy   globals.ProxyConfig
 }
 
 func (c *ChatInstance) GetImageEndpoint() string {
@@ -21,22 +22,26 @@ func (c *ChatInstance) GetImageEndpoint() string {
 
 // CreateImageRequest will create a dalle image from prompt, return url of image, base64 data and error
 func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, error) {
+	size := props.Size
+	if size == "" {
+		size = utils.Multi[ImageSize](
+			props.Model == globals.Dalle3 || globals.IsOpenAIGPTImageModel(props.Model),
+			ImageSize1024,
+			ImageSize512,
+		)
+	}
+	quality := props.Quality
+	if quality == "" && globals.IsOpenAIGPTImageModel(props.Model) {
+		quality = "medium"
+	}
 	res, err := utils.Post(
 		c.GetImageEndpoint(),
 		c.GetHeader(), ImageRequest{
-			Model:  props.Model,
-			Prompt: props.Prompt,
-			Size: utils.Multi[ImageSize](
-				props.Model == globals.Dalle3 || globals.IsOpenAIGPTImageModel(props.Model),
-				ImageSize1024,
-				ImageSize512,
-			),
-			Quality: utils.Multi(
-				globals.IsOpenAIGPTImageModel(props.Model),
-				"medium",
-				"",
-			),
-			N: 1,
+			Model:   props.Model,
+			Prompt:  props.Prompt,
+			Size:    size,
+			Quality: quality,
+			N:       1,
 		}, props.Proxy)
 	if err != nil {
 		return "", "", fmt.Errorf("openai image request failed: %w", err)
@@ -82,9 +87,11 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 // CreateImage will create a dalle image from prompt, return markdown of image
 func (c *ChatInstance) CreateImage(props *adaptercommon.ChatProps) (string, error) {
 	url, b64Json, err := c.CreateImageRequest(ImageProps{
-		Model:  props.Model,
-		Prompt: c.GetLatestPrompt(props),
-		Proxy:  props.Proxy,
+		Model:   props.Model,
+		Prompt:  c.GetLatestPrompt(props),
+		Size:    ImageSize(props.ImageSize),
+		Quality: props.ImageQuality,
+		Proxy:   props.Proxy,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "safety") {

@@ -129,7 +129,7 @@ func TestCreateImageRequestGPTImage(t *testing.T) {
 			t.Errorf("[%s] request model = %q, want %q", model, body.Model, model)
 		}
 
-		// gpt-image-* only accepts 1024x1024 in this MVP
+		// Defaults remain backward compatible when no tool options are supplied.
 		if body.Size != ImageSize1024 {
 			t.Errorf("[%s] request size = %q, want %q", model, body.Size, ImageSize1024)
 		}
@@ -137,6 +137,28 @@ func TestCreateImageRequestGPTImage(t *testing.T) {
 		if body.Quality != "medium" {
 			t.Errorf("[%s] request quality = %q, want %q", model, body.Quality, "medium")
 		}
+	}
+}
+
+func TestCreateImageRequestGPTImageUsesRequestedSizeAndQuality(t *testing.T) {
+	var path string
+	var body ImageRequest
+	instance := NewChatInstance("", "sk-test")
+	server := newImageServer(t, &path, &body, map[string]interface{}{
+		"data": []map[string]string{{"b64_json": "aGVsbG8="}},
+	})
+	instance.Endpoint = server.URL
+	defer server.Close()
+
+	_, _, err := instance.CreateImageRequest(ImageProps{
+		Model: globals.GPTImage2, Prompt: "portrait poster",
+		Size: ImageSizePortrait, Quality: "high",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body.Size != ImageSizePortrait || body.Quality != "high" {
+		t.Fatalf("request size/quality = %q/%q, want %q/high", body.Size, body.Quality, ImageSizePortrait)
 	}
 }
 

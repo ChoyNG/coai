@@ -65,9 +65,11 @@ func ImagesRelayAPI(c *gin.Context) {
 
 func getImageProps(form RelayImageForm, messages []globals.Message, buffer *utils.Buffer) *adaptercommon.ChatProps {
 	return adaptercommon.CreateChatProps(&adaptercommon.ChatProps{
-		Model:     form.Model,
-		Message:   messages,
-		MaxTokens: utils.ToPtr(-1),
+		Model:        form.Model,
+		Message:      messages,
+		MaxTokens:    utils.ToPtr(-1),
+		ImageSize:    normalizeImageSize(form.Size),
+		ImageQuality: normalizeImageQuality(form.Quality),
 	}, buffer)
 }
 
@@ -98,7 +100,9 @@ func createRelayImageObject(c *gin.Context, form RelayImageForm, prompt string, 
 		},
 	}
 
-	buffer := utils.NewBuffer(form.Model, messages, channel.ChargeInstance.GetCharge(form.Model))
+	form.Size = normalizeImageSize(form.Size)
+	form.Quality = normalizeImageQuality(form.Quality)
+	buffer := utils.NewBuffer(form.Model, messages, imageRequestCharge(form.Model, form.Size, form.Quality))
 	hit, err := channel.NewChatRequestWithCache(cache, buffer, auth.GetGroup(db, user), getImageProps(form, messages, buffer), func(data *globals.Chunk) error {
 		buffer.WriteChunk(data)
 		return nil

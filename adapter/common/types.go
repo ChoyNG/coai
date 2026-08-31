@@ -42,6 +42,8 @@ type ChatProps struct {
 	TopK              *int                   `json:"top_k,omitempty"`
 	Tools             *globals.FunctionTools `json:"tools,omitempty"`
 	ToolChoice        *interface{}           `json:"tool_choice,omitempty"`
+	ImageSize         string                 `json:"-"`
+	ImageQuality      string                 `json:"-"`
 	Buffer            *utils.Buffer          `json:"-"`
 }
 

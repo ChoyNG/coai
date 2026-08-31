@@ -120,7 +120,9 @@ type ImageResponse struct {
 }
 
 var (
-	ImageSize256  ImageSize = "256x256"
-	ImageSize512  ImageSize = "512x512"
-	ImageSize1024 ImageSize = "1024x1024"
+	ImageSize256       ImageSize = "256x256"
+	ImageSize512       ImageSize = "512x512"
+	ImageSize1024      ImageSize = "1024x1024"
+	ImageSizePortrait  ImageSize = "1024x1536"
+	ImageSizeLandscape ImageSize = "1536x1024"
 )

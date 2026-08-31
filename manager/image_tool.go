@@ -15,8 +15,62 @@ import (
 const generateImageToolName = "generate_image"
 
 type generateImageArguments struct {
-	Prompt string `json:"prompt"`
-	Size   string `json:"size,omitempty"`
+	Prompt  string `json:"prompt"`
+	Size    string `json:"size,omitempty"`
+	Quality string `json:"quality,omitempty"`
+}
+
+var supportedImageSizes = []string{"1024x1024", "1024x1536", "1536x1024"}
+var supportedImageQualities = []string{"low", "medium", "high"}
+
+func normalizeImageSize(size string) string {
+	size = strings.TrimSpace(strings.ToLower(size))
+	if utils.Contains(size, supportedImageSizes) {
+		return size
+	}
+	return "1024x1024"
+}
+
+func normalizeImageQuality(quality string) string {
+	quality = strings.TrimSpace(strings.ToLower(quality))
+	if utils.Contains(quality, supportedImageQualities) {
+		return quality
+	}
+	return "medium"
+}
+
+func imageRequestPrice(model, size, quality string) float32 {
+	if model != globals.GPTImage2 {
+		return 0
+	}
+	size = normalizeImageSize(size)
+	quality = normalizeImageQuality(quality)
+	prices := map[string]map[string]float32{
+		"low":    {"1024x1024": 0.006, "1024x1536": 0.005, "1536x1024": 0.005},
+		"medium": {"1024x1024": 0.053, "1024x1536": 0.041, "1536x1024": 0.041},
+		"high":   {"1024x1024": 0.211, "1024x1536": 0.165, "1536x1024": 0.165},
+	}
+	return prices[quality][size]
+}
+
+func imageRequestCharge(model, size, quality string) *channel.Charge {
+	configured := channel.ChargeInstance.GetCharge(model)
+	if configured == nil || !configured.IsBillingType(globals.TimesBilling) || model != globals.GPTImage2 {
+		return configured
+	}
+	charge := *configured
+	price := imageRequestPrice(model, size, quality)
+	if price <= 0 {
+		return &charge
+	}
+	// Preserve any administrator-defined margin relative to the documented
+	// medium-square base price instead of silently replacing their rate card.
+	margin := configured.GetOutput() / 0.053
+	if margin <= 0 {
+		margin = 1
+	}
+	charge.Output = price * margin
+	return &charge
 }
 
 func selectImageToolModel() string {
@@ -48,8 +102,13 @@ func getImageGenerationTools(model string) *globals.FunctionTools {
 						},
 						"size": globals.ToolProperty{
 							"type":        "string",
-							"description": "Requested output size. Use 1024x1024 when unspecified.",
-							"enum":        []string{"1024x1024"},
+							"description": "Requested output size: square, portrait, or landscape. Use 1024x1024 when unspecified.",
+							"enum":        supportedImageSizes,
+						},
+						"quality": globals.ToolProperty{
+							"type":        "string",
+							"description": "Rendering quality. Use medium unless the user explicitly asks for a draft/low quality or high quality.",
+							"enum":        supportedImageQualities,
 						},
 					},
 					Required: &required,
@@ -76,9 +135,8 @@ func getGenerateImageArguments(calls *globals.ToolCalls) (*generateImageArgument
 		if args.Prompt == "" {
 			return nil, true, fmt.Errorf("generate_image prompt is empty")
 		}
-		if args.Size == "" {
-			args.Size = "1024x1024"
-		}
+		args.Size = normalizeImageSize(args.Size)
+		args.Quality = normalizeImageQuality(args.Quality)
 		return &args, true, nil
 	}
 	return nil, false, nil
@@ -98,12 +156,14 @@ func executeGenerateImageTool(conn *Connection, user *auth.User, args *generateI
 		return "", 0, plan, check
 	}
 
-	buffer := utils.NewBuffer(model, messages, channel.ChargeInstance.GetCharge(model))
+	buffer := utils.NewBuffer(model, messages, imageRequestCharge(model, args.Size, args.Quality))
 	hit, err := channel.NewChatRequestWithCache(
 		cache,
 		buffer,
 		auth.GetGroup(db, user),
-		adaptercommon.CreateChatProps(&adaptercommon.ChatProps{Model: model, Message: messages}, buffer),
+		adaptercommon.CreateChatProps(&adaptercommon.ChatProps{
+			Model: model, Message: messages, ImageSize: args.Size, ImageQuality: args.Quality,
+		}, buffer),
 		func(data *globals.Chunk) error {
 			buffer.WriteChunk(data)
 			return nil
