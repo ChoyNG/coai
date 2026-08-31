@@ -2,9 +2,9 @@
 # License: Apache-2.0
 # Description: Dockerfile for chatnio
 
-ARG GOLANG_IMAGE=golang:1.20-alpine
-ARG NODE_IMAGE=node:18
-ARG ALPINE_IMAGE=alpine:3.21
+ARG GOLANG_IMAGE=dockerproxy.net/library/golang:1.20-alpine
+ARG NODE_IMAGE=dockerproxy.net/library/node:18
+ARG ALPINE_IMAGE=dockerproxy.net/library/alpine:3.21
 
 FROM --platform=$TARGETPLATFORM ${GOLANG_IMAGE} AS backend
 
