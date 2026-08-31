@@ -34,6 +34,9 @@ RUN go build -o chat -a -ldflags="-extldflags=-static" .
 FROM ${NODE_IMAGE} AS frontend
 
 ARG NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+ARG NODE_OPTIONS=--max-old-space-size=1536
+
+ENV NODE_OPTIONS=${NODE_OPTIONS}
 
 WORKDIR /app
 COPY ./app .
