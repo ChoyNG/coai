@@ -130,6 +130,9 @@ export const ChannelInfos: Record<string, ChannelInfo> = {
       "dalle",
       "dall-e-2",
       "dall-e-3",
+      "gpt-image-1",
+      "gpt-image-1.5",
+      "gpt-image-2",
     ],
   },
   azure: {

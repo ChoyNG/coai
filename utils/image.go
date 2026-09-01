@@ -2,6 +2,7 @@ package utils
 
 import (
 	"chat/globals"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/gif"
@@ -238,4 +239,48 @@ func StoreImage(url string) string {
 	}
 
 	return url
+}
+
+// StoreBase64Image persists an inline image and returns a stable attachment URL.
+// Keeping multi-megabyte base64 payloads out of conversation JSON makes history
+// loading reliable and lets Docker's /storage volume preserve generated images.
+func StoreBase64Image(data string) (string, error) {
+	mimeType := "image/png"
+	raw := data
+	if strings.HasPrefix(data, "data:image/") {
+		parts := strings.SplitN(data, ",", 2)
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid base64 image data URL")
+		}
+		raw = parts[1]
+		if header := strings.TrimPrefix(parts[0], "data:"); strings.Contains(header, ";") {
+			mimeType = strings.SplitN(header, ";", 2)[0]
+		}
+	}
+
+	content, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return "", fmt.Errorf("decode base64 image: %w", err)
+	}
+
+	extension := ".png"
+	switch mimeType {
+	case "image/jpeg":
+		extension = ".jpg"
+	case "image/webp":
+		extension = ".webp"
+	case "image/gif":
+		extension = ".gif"
+	}
+
+	directory := "storage/attachments"
+	if err := os.MkdirAll(directory, 0755); err != nil {
+		return "", fmt.Errorf("create image storage: %w", err)
+	}
+	filename := Md5Encrypt(raw) + extension
+	if err := os.WriteFile(path.Join(directory, filename), content, 0644); err != nil {
+		return "", fmt.Errorf("store base64 image: %w", err)
+	}
+
+	return fmt.Sprintf("%s/attachments/%s", globals.NotifyUrl, filename), nil
 }

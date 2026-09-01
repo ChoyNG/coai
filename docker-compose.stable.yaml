@@ -2,6 +2,7 @@ version: "3"
 services:
   mysql:
     image: mysql:5.7.44
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     container_name: db
     restart: always
     environment:
@@ -54,6 +55,8 @@ services:
       REDIS_PASSWORD: ""
       REDIS_DB: 0
       SERVE_STATIC: "true"
+      # Set SECRET in your shell or a local .env file; never commit its value.
+      SECRET: "${SECRET:?Set SECRET to a random value of at least 32 characters}"
     volumes:
       - ./config:/config
       - ./logs:/logs

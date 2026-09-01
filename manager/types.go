@@ -102,9 +102,11 @@ type TranshipmentError struct {
 }
 
 type RelayImageForm struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-	N      *int   `json:"n,omitempty"`
+	Model   string `json:"model"`
+	Prompt  string `json:"prompt"`
+	N       *int   `json:"n,omitempty"`
+	Size    string `json:"size,omitempty"`
+	Quality string `json:"quality,omitempty"`
 }
 
 type RelayImageData struct {

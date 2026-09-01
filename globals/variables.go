@@ -89,6 +89,8 @@ const (
 	GPT4O                        = "gpt-4o"
 	GPT4O20240513                = "gpt-4o-2024-05-13"
 	GPTImage1                    = "gpt-image-1"
+	GPTImage15                   = "gpt-image-1.5"
+	GPTImage2                    = "gpt-image-2"
 	Sora2                        = "sora-2"
 	Dalle                        = "dalle"
 	Dalle2                       = "dall-e-2"
@@ -149,7 +151,13 @@ const (
 )
 
 var OpenAIDalleModels = []string{
-	Dalle, Dalle2, Dalle3, GPTImage1,
+	Dalle, Dalle2, Dalle3, GPTImage1, GPTImage15, GPTImage2,
+}
+
+// OpenAIGPTImageModels are the gpt-image-* models served by /v1/images/generations.
+// Unlike dall-e, they always return base64 (b64_json) instead of an url.
+var OpenAIGPTImageModels = []string{
+	GPTImage1, GPTImage15, GPTImage2,
 }
 
 var GoogleImagenModels = []string{
@@ -183,6 +191,14 @@ func in(value string, slice []string) bool {
 func IsOpenAIDalleModel(model string) bool {
 	// using image generation api if model is in dalle models
 	return in(model, OpenAIDalleModels) && !strings.Contains(model, "gpt-4-dalle")
+}
+
+// IsOpenAIGPTImageModel reports whether the model is a gpt-image-* model.
+// These models must be routed to /v1/images/generations (they are rejected by
+// /v1/chat/completions on OpenAI-compatible gateways such as Sub2API) and they
+// answer with b64_json rather than url.
+func IsOpenAIGPTImageModel(model string) bool {
+	return in(model, OpenAIGPTImageModels)
 }
 
 func IsGoogleImagenModel(model string) bool {

@@ -337,7 +337,7 @@ function Account() {
                 </span>
                 <Cloud className="w-10 h-10 p-2 rounded-lg bg-muted/40 text-secondary stroke-[1]" />
               </div>
-              <p className="text-md">{quota.toFixed(2)}</p>
+              <p className="text-md">{quota.toFixed(4)}</p>
             </div>
             <div className="bg-card shadow-sm rounded-lg p-4 transition-all border">
               <div className="flex items-center justify-between mb-2">
@@ -346,7 +346,7 @@ function Account() {
                 </span>
                 <CloudRain className="w-10 h-10 p-2 rounded-lg bg-muted/40 text-secondary stroke-[1]" />
               </div>
-              <p className="text-md">{info.used_quota.toFixed(2)}</p>
+              <p className="text-md">{info.used_quota.toFixed(4)}</p>
             </div>
             <div className="bg-card shadow-sm rounded-lg p-4 transition-all border">
               <div className="flex items-center justify-between mb-2">

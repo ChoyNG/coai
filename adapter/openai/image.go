@@ -9,10 +9,11 @@ import (
 )
 
 type ImageProps struct {
-	Model  string
-	Prompt string
-	Size   ImageSize
-	Proxy  globals.ProxyConfig
+	Model   string
+	Prompt  string
+	Size    ImageSize
+	Quality string
+	Proxy   globals.ProxyConfig
 }
 
 func (c *ChatInstance) GetImageEndpoint() string {
@@ -21,32 +22,63 @@ func (c *ChatInstance) GetImageEndpoint() string {
 
 // CreateImageRequest will create a dalle image from prompt, return url of image, base64 data and error
 func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, error) {
+	size := props.Size
+	if size == "" {
+		size = utils.Multi[ImageSize](
+			props.Model == globals.Dalle3 || globals.IsOpenAIGPTImageModel(props.Model),
+			ImageSize1024,
+			ImageSize512,
+		)
+	}
+	quality := props.Quality
+	if quality == "" && globals.IsOpenAIGPTImageModel(props.Model) {
+		quality = "medium"
+	}
 	res, err := utils.Post(
 		c.GetImageEndpoint(),
 		c.GetHeader(), ImageRequest{
-			Model:  props.Model,
-			Prompt: props.Prompt,
-			Size: utils.Multi[ImageSize](
-				props.Model == globals.Dalle3 || props.Model == globals.GPTImage1,
-				ImageSize1024,
-				ImageSize512,
-			),
-			N: 1,
+			Model:   props.Model,
+			Prompt:  props.Prompt,
+			Size:    size,
+			Quality: quality,
+			N:       1,
 		}, props.Proxy)
-	if err != nil || res == nil {
-		return "", "", fmt.Errorf(err.Error())
+	if err != nil {
+		return "", "", fmt.Errorf("openai image request failed: %w", err)
+	}
+	if res == nil {
+		return "", "", fmt.Errorf("openai image error: upstream returned an empty response")
 	}
 
 	data := utils.MapToStruct[ImageResponse](res)
 	if data == nil {
-		return "", "", fmt.Errorf("openai error: cannot parse response")
-	} else if data.Error.Message != "" {
-		return "", "", fmt.Errorf(data.Error.Message)
+		return "", "", fmt.Errorf("openai image error: cannot parse upstream response")
+	}
+	if data.Error.Message != "" {
+		return "", "", fmt.Errorf("openai image error: %s", data.Error.Message)
+	}
+	if data.Message != "" {
+		if data.Code != "" {
+			return "", "", fmt.Errorf("openai image error: %s (%s)", data.Message, data.Code)
+		}
+		return "", "", fmt.Errorf("openai image error: %s", data.Message)
+	}
+	if len(data.Data) == 0 {
+		return "", "", fmt.Errorf("openai image error: upstream response contains no image data")
 	}
 
-	// for gpt-image-1, return base64 data if available
-	if props.Model == globals.GPTImage1 && data.Data[0].B64Json != "" {
+	// for gpt-image-1 / gpt-image-1.5 / gpt-image-2, return base64 data if available
+	if globals.IsOpenAIGPTImageModel(props.Model) && data.Data[0].B64Json != "" {
 		return "", data.Data[0].B64Json, nil
+	}
+
+	// fall back to b64_json for any other model returning base64 (e.g. gateways
+	// such as Sub2API that normalize every image model to base64)
+	if data.Data[0].Url == "" && data.Data[0].B64Json != "" {
+		return "", data.Data[0].B64Json, nil
+	}
+	if data.Data[0].Url == "" {
+		return "", "", fmt.Errorf("openai image error: upstream response contains neither url nor b64_json")
 	}
 
 	return data.Data[0].Url, "", nil
@@ -55,9 +87,11 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) (string, string, err
 // CreateImage will create a dalle image from prompt, return markdown of image
 func (c *ChatInstance) CreateImage(props *adaptercommon.ChatProps) (string, error) {
 	url, b64Json, err := c.CreateImageRequest(ImageProps{
-		Model:  props.Model,
-		Prompt: c.GetLatestPrompt(props),
-		Proxy:  props.Proxy,
+		Model:   props.Model,
+		Prompt:  c.GetLatestPrompt(props),
+		Size:    ImageSize(props.ImageSize),
+		Quality: props.ImageQuality,
+		Proxy:   props.Proxy,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "safety") {
@@ -67,7 +101,12 @@ func (c *ChatInstance) CreateImage(props *adaptercommon.ChatProps) (string, erro
 	}
 
 	if b64Json != "" {
-		return utils.GetBase64ImageMarkdown(b64Json), nil
+		storedUrl, storeErr := utils.StoreBase64Image(b64Json)
+		if storeErr != nil {
+			globals.Warn(fmt.Sprintf("[openai image] failed to persist generated image: %s", storeErr.Error()))
+			return utils.GetBase64ImageMarkdown(b64Json), nil
+		}
+		return utils.GetImageMarkdown(storedUrl), nil
 	}
 
 	storedUrl := utils.StoreImage(url)

@@ -55,6 +55,8 @@ type WebSocket struct {
 }
 
 var defaultMaxTimeout = 15 * time.Minute
+var websocketPingInterval = 25 * time.Second
+var websocketPingTimeout = 5 * time.Second
 
 func CheckUpgrader(c *gin.Context, strict bool) *websocket.Upgrader {
 	return &websocket.Upgrader{
@@ -86,6 +88,7 @@ func NewWebsocket(c *gin.Context, strict bool) *WebSocket {
 			Conn: conn,
 		}
 		instance.Init()
+		instance.startHeartbeat()
 		return instance
 	}
 }
@@ -100,6 +103,22 @@ func NewWebsocketClient(url string) *WebSocket {
 		instance.Init()
 		return instance
 	}
+}
+
+// startHeartbeat keeps long-running image and chat requests alive through
+// reverse proxies and tunnels. WriteControl is safe to call concurrently with
+// normal data writes; the loop exits as soon as the connection is closed.
+func (w *WebSocket) startHeartbeat() {
+	go func() {
+		ticker := time.NewTicker(websocketPingInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			deadline := time.Now().Add(websocketPingTimeout)
+			if err := w.Conn.WriteControl(websocket.PingMessage, nil, deadline); err != nil {
+				return
+			}
+		}
+	}()
 }
 
 func (w *WebSocket) Init() {
